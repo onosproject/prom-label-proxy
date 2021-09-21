@@ -1,3 +1,5 @@
-## Prometheus Community Code of Conduct
+We expect all ONF employees, member companies, and participants to abide by our
+[Code of Conduct](https://www.opennetworking.org/wp-content/themes/onf/img/onf-code-of-conduct.pdf).
 
-Prometheus follows the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
+If you are being harassed, notice that someone else is being harassed, or have any other concerns involving someone’s
+welfare, please notify a member of the ONF team or email [conduct@opennetworking.org](conduct@opennetworking.org). 
