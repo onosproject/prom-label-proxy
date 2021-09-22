@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2021-present Open Networking Foundation <info@opennetworking.org>
+//
+// SPDX-License-Identifier: LicenseRef-ONF-Member-1.0
+//
+
 // Copyright 2020 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +20,7 @@ package main
 
 import (
 	"flag"
+	"github.com/onosproject/onos-lib-go/pkg/auth"
 	"log"
 	"net"
 	"net/http"
@@ -83,6 +89,13 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", routes)
+
+	oidc := os.Getenv(auth.OIDCServerURL)
+	if oidc != "" {
+		log.Printf("Using %s as OIDC Key Server", oidc)
+	} else {
+		log.Printf("No OIDC server given - set the %s env var. Continuing.", auth.OIDCServerURL)
+	}
 
 	srv := &http.Server{Handler: mux}
 

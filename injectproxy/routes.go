@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2021-present Open Networking Foundation <info@opennetworking.org>
+//
+// SPDX-License-Identifier: LicenseRef-ONF-Member-1.0
+//
+
 // Copyright 2020 The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +21,12 @@ package injectproxy
 import (
 	"context"
 	"fmt"
+	"github.com/onosproject/onos-lib-go/pkg/auth"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/efficientgo/tools/core/pkg/merrors"
@@ -202,6 +209,10 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			http.Error(w, fmt.Sprintf("Bad request. The %q query parameter must be provided.", r.label), http.StatusBadRequest)
 			return
 		}
+		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
+			enforceAuth(w, req)
+		}
+
 		req = req.WithContext(withLabelValue(req.Context(), lvalue))
 
 		// Remove the proxy label from the query parameters.
