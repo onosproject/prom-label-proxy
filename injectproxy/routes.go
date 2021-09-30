@@ -41,9 +41,10 @@ const (
 )
 
 type routes struct {
-	upstream *url.URL
-	handler  http.Handler
-	label    string
+	upstream   *url.URL
+	handler    http.Handler
+	label      string
+	adminGroup string
 
 	mux            *http.ServeMux
 	modifiers      map[string]func(*http.Response) error
@@ -133,7 +134,7 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string, opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
@@ -141,7 +142,7 @@ func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error)
 
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 
-	r := &routes{upstream: upstream, handler: proxy, label: label, errorOnReplace: opt.errorOnReplace}
+	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, errorOnReplace: opt.errorOnReplace}
 	mux := newStrictMux()
 
 	errs := merrors.New(
@@ -204,14 +205,18 @@ func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error)
 
 func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		lvalue := req.FormValue(r.label)
-		if lvalue == "" {
-			http.Error(w, fmt.Sprintf("Bad request. The %q query parameter must be provided.", r.label), http.StatusBadRequest)
+
+		var groups []string
+		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
+			groups = enforceAuth(w, req)
+		}
+
+		if r.isAdminUser(groups) {
+			r.handler.ServeHTTP(w, req)
 			return
 		}
-		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
-			enforceAuth(w, req)
-		}
+
+		lvalue := getEnterpriseName(groups)
 
 		req = req.WithContext(withLabelValue(req.Context(), lvalue))
 
