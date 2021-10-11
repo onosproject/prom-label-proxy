@@ -33,6 +33,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
+        "log"
 )
 
 const (
@@ -45,6 +46,7 @@ type routes struct {
 	handler    http.Handler
 	label      string
 	adminGroup string
+        configChannel chan map[string]map[string]string
 
 	mux            *http.ServeMux
 	modifiers      map[string]func(*http.Response) error
@@ -134,14 +136,14 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, adminGroup string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string,configChannel chan map[string]map[string]string,opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
-
+	
 	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, errorOnReplace: opt.errorOnReplace}
 	mux := newStrictMux()
 
@@ -154,7 +156,6 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, opts ...Optio
 		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET"))),
 		mux.Handle("/api/v1/query_exemplars", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 	)
-
 	if opt.enableLabelAPIs {
 		errs.Add(
 			mux.Handle("/api/v1/labels", r.enforceLabel(enforceMethods(r.matcher, "GET", "POST"))),
@@ -199,6 +200,7 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, opts ...Optio
 		"/api/v1/rules":  modifyAPIResponse(r.filterRules),
 		"/api/v1/alerts": modifyAPIResponse(r.filterAlerts),
 	}
+	r.configChannel = configChannel
 	proxy.ModifyResponse = r.ModifyResponse
 	return r, nil
 }
@@ -206,20 +208,33 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, opts ...Optio
 func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 
-		var groups []string
 		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
-			groups = enforceAuth(w, req)
-		}
+			groups := enforceAuth(w, req)
 
-		if r.isAdminUser(groups) {
-			r.handler.ServeHTTP(w, req)
-			return
-		}
+			if len(groups) == 0  {
+                                log.Fatal("No user group exit ")
+				return
+			}
 
-		lvalue := getEnterpriseName(groups)
+			if r.isAdminUser(groups) {
+				r.handler.ServeHTTP(w, req)
+				return
+			}
+        	        lblname,lblvalue,err := r.GetLabelsConfig(groups)
+		
+			if err == nil {
+				log.Printf("lable config : ",lblname,lblvalue)
+				r.label = lblname
+				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
+			}else {
+				log.Printf("error getting lable config  ",err)
+				http.Error(w, fmt.Sprintf("Error while getting label config : %v", err), http.StatusInternalServerError)
+	 	 		return		
 
-		req = req.WithContext(withLabelValue(req.Context(), lvalue))
-
+			}
+                }
+				
+		
 		// Remove the proxy label from the query parameters.
 		q := req.URL.Query()
 		if q.Get(r.label) != "" {

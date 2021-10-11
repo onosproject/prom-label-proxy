@@ -20,7 +20,10 @@ package main
 
 import (
 	"flag"
+        "fmt"
 	"github.com/onosproject/onos-lib-go/pkg/auth"
+	"github.com/prometheus-community/prom-label-proxy/injectproxy"
+	syncv1 "github.com/prometheus-community/prom-label-proxy/pkg/syncv1"
 	"log"
 	"net"
 	"net/http"
@@ -29,43 +32,34 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+)
 
-	"github.com/prometheus-community/prom-label-proxy/injectproxy"
+var (
+
+	insecureListenAddress           = flag.String("insecure-listen-address", ":8080", "Bind to address:port or just :port")
+	upstream         = flag.String("upstream", "", "")
+	label     = 		flag.String("label", "", "JSON file to save output to")
+	adminGroup     = 		flag.String("admingroup", "AetherROCAdmin", "admin group name")
+	enableLabelAPIs        = flag.Bool("enable-label-apis", false, "Disable posting to connectivity service endpoints")
+	unsafePassthroughPaths        = flag.String("unsafe-passthrough-paths", "", "Timeout duration when making post requests")
+	errorOnReplace   = flag.Bool("error-on-replace", false, "If specified, pull initial state from aether-config at this address")
+
 )
 
 func main() {
-	var (
-		insecureListenAddress  string
-		upstream               string
-		label                  string
-		enableLabelAPIs        bool
-		unsafePassthroughPaths string // Comma-delimited string.
-		errorOnReplace         bool
-		adminGroup             string
-	)
 
-	flagset := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	flagset.StringVar(&insecureListenAddress, "insecure-listen-address", "", "The address the prom-label-proxy HTTP server should listen on.")
-	flagset.StringVar(&upstream, "upstream", "", "The upstream URL to proxy to.")
-	flagset.StringVar(&label, "label", "", "The label to enforce in all proxied PromQL queries. "+
-		"This label will be also required as the URL parameter to get the value to be injected. For example: -label=tenant will"+
-		" make it required for this proxy to have URL in form of: <URL>?tenant=abc&other_params...")
-	flagset.BoolVar(&enableLabelAPIs, "enable-label-apis", false, "When specified proxy allows to inject label to label APIs like /api/v1/labels and /api/v1/label/<name>/values."+
-		"NOTE: Enable with care. Selection of matcher is still in development, see https://github.com/thanos-io/thanos/issues/3351 and https://github.com/prometheus/prometheus/issues/6178. If enabled and"+
-		"any labels endpoint does not support selectors, injected matcher will be silently dropped.")
-	flagset.StringVar(&unsafePassthroughPaths, "unsafe-passthrough-paths", "", "Comma delimited allow list of exact HTTP path segments should be allowed to hit upstream URL without any enforcement."+
-		"This option is checked after Prometheus APIs, you can cannot override enforced API to be not enforced with this option. Use carefully as it can easily cause a data leak if the provided path is an important"+
-		"API like targets or configuration. NOTE: \"all\" matching paths like \"/\" or \"\" and regex are not allowed.")
-	flagset.BoolVar(&errorOnReplace, "error-on-replace", false, "When specified, the proxy will return HTTP status code 400 if the query already contains a label matcher that differs from the one the proxy would inject.")
-	flagset.StringVar(&adminGroup, "admin-group", "", "This will insure the admin access")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	flag.Parse()
 
-	//nolint: errcheck // Parse() will exit on error.
-	flagset.Parse(os.Args[1:])
-	if label == "" {
+
+	if *label == "" {
 		log.Fatalf("-label flag cannot be empty")
 	}
 
-	upstreamURL, err := url.Parse(upstream)
+	upstreamURL, err := url.Parse(*upstream)
 	if err != nil {
 		log.Fatalf("Failed to build parse upstream URL: %v", err)
 	}
@@ -75,19 +69,24 @@ func main() {
 	}
 
 	var opts []injectproxy.Option
-	if enableLabelAPIs {
+	if *enableLabelAPIs {
 		opts = append(opts, injectproxy.WithEnabledLabelsAPI())
 	}
-	if len(unsafePassthroughPaths) > 0 {
-		opts = append(opts, injectproxy.WithPassthroughPaths(strings.Split(unsafePassthroughPaths, ",")))
+	if len(*unsafePassthroughPaths) > 0 {
+		opts = append(opts, injectproxy.WithPassthroughPaths(strings.Split(*unsafePassthroughPaths, ",")))
 	}
-	if errorOnReplace {
+	if *errorOnReplace {
 		opts = append(opts, injectproxy.WithErrorOnReplace())
 	}
-	routes, err := injectproxy.NewRoutes(upstreamURL, label, adminGroup, opts...)
+	config_ch := make(chan map[string]map[string]string,1)
+	config_ch <- make(map[string]map[string]string)
+
+
+	routes, err := injectproxy.NewRoutes(upstreamURL, *label, *adminGroup,config_ch ,opts...)
 	if err != nil {
 		log.Fatalf("Failed to create injectproxy Routes: %v", err)
 	}
+	go syncv1.StartGNMIServer(config_ch)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", routes)
@@ -101,7 +100,7 @@ func main() {
 
 	srv := &http.Server{Handler: mux}
 
-	l, err := net.Listen("tcp", insecureListenAddress)
+	l, err := net.Listen("tcp", *insecureListenAddress)
 	if err != nil {
 		log.Fatalf("Failed to listen on insecure address: %v", err)
 	}
@@ -126,3 +125,4 @@ func main() {
 		os.Exit(1)
 	}
 }
+

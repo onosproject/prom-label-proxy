@@ -152,6 +152,9 @@ common-check_license:
 .PHONY: common-deps
 common-deps:
 	@echo ">> getting dependencies"
+	GOPRIVATE="github.com/onosproject/*" go build -v ./...
+	bash -c "diff -u <(echo -n) <(git diff go.mod)"
+	bash -c "diff -u <(echo -n) <(git diff go.sum)"
 ifdef GO111MODULE
 	GO111MODULE=$(GO111MODULE) $(GO) mod download
 else
