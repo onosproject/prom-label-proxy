@@ -20,8 +20,11 @@ package injectproxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/onosproject/onos-lib-go/pkg/auth"
+	"github.com/prometheus-community/prom-label-proxy/pkg/syncv1"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -33,6 +36,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
+	"log"
 )
 
 const (
@@ -41,9 +45,11 @@ const (
 )
 
 type routes struct {
-	upstream *url.URL
-	handler  http.Handler
-	label    string
+	upstream      *url.URL
+	handler       http.Handler
+	label         string
+	adminGroup    string
+	configChannel chan map[string]map[string]string
 
 	mux            *http.ServeMux
 	modifiers      map[string]func(*http.Response) error
@@ -133,7 +139,7 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string, configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
@@ -141,10 +147,11 @@ func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error)
 
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 
-	r := &routes{upstream: upstream, handler: proxy, label: label, errorOnReplace: opt.errorOnReplace}
+	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, errorOnReplace: opt.errorOnReplace}
 	mux := newStrictMux()
 
 	errs := merrors.New(
+		mux.Handle("/api/v1/config/", r.updateLabelConfig(enforceMethods(r.matcher, "GET", "POST"))),
 		mux.Handle("/federate", r.enforceLabel(enforceMethods(r.matcher, "GET"))),
 		mux.Handle("/api/v1/query", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 		mux.Handle("/api/v1/query_range", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
@@ -153,7 +160,6 @@ func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error)
 		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET"))),
 		mux.Handle("/api/v1/query_exemplars", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 	)
-
 	if opt.enableLabelAPIs {
 		errs.Add(
 			mux.Handle("/api/v1/labels", r.enforceLabel(enforceMethods(r.matcher, "GET", "POST"))),
@@ -198,22 +204,39 @@ func NewRoutes(upstream *url.URL, label string, opts ...Option) (*routes, error)
 		"/api/v1/rules":  modifyAPIResponse(r.filterRules),
 		"/api/v1/alerts": modifyAPIResponse(r.filterAlerts),
 	}
+	r.configChannel = configChannel
 	proxy.ModifyResponse = r.ModifyResponse
 	return r, nil
 }
 
 func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		lvalue := req.FormValue(r.label)
-		if lvalue == "" {
-			http.Error(w, fmt.Sprintf("Bad request. The %q query parameter must be provided.", r.label), http.StatusBadRequest)
-			return
-		}
-		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
-			enforceAuth(w, req)
-		}
 
-		req = req.WithContext(withLabelValue(req.Context(), lvalue))
+		if oidc := os.Getenv(auth.OIDCServerURL); oidc != "" {
+			groups := enforceAuth(w, req)
+
+			if len(groups) == 0 {
+				log.Fatal("No user group exit ")
+				return
+			}
+
+			if r.isAdminUser(groups) {
+				r.handler.ServeHTTP(w, req)
+				return
+			}
+			lblname, lblvalue, err := r.GetLabelsConfig(groups)
+
+			if err == nil {
+				log.Printf("lable config : ", lblname, lblvalue)
+				r.label = lblname
+				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
+			} else {
+				log.Printf("error getting lable config  ", err)
+				http.Error(w, fmt.Sprintf("Error while getting label config : %v", err), http.StatusInternalServerError)
+				return
+
+			}
+		}
 
 		// Remove the proxy label from the query parameters.
 		q := req.URL.Query()
@@ -238,6 +261,63 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 		}
 
 		h.ServeHTTP(w, req)
+	})
+}
+
+// API for GET/UPDATE lable config for the user groups
+func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+		if req.Method == http.MethodPost {
+			defer req.Body.Close()
+			b, err := io.ReadAll(req.Body)
+			if err != nil {
+				log.Fatalln(err)
+				http.Error(w, fmt.Sprintf("Failed to read the data: %v", err), http.StatusInternalServerError)
+				return
+			}
+			var config syncv1.UserGroups
+			err = json.Unmarshal([]byte(string(b)), &config)
+
+			if err != nil {
+				log.Fatalln(err)
+				http.Error(w, fmt.Sprintf("Failed to parse the data: %v", err), http.StatusInternalServerError)
+				return
+			}
+			values := <-r.configChannel
+			for _, usrGrp := range config.UserGroups {
+				UserGrpName := usrGrp.Name
+				for _, lbl := range usrGrp.Labels {
+					if values[UserGrpName] == nil {
+						values[UserGrpName] = make(map[string]string)
+					}
+					values[UserGrpName][lbl.Name] = lbl.Value
+				}
+			} //
+			r.configChannel <- values
+		}
+		if req.Method == http.MethodGet {
+			values := <-r.configChannel
+			var UserGrps syncv1.UserGroups
+			for UsrName, lbl := range values {
+				UserGrp := syncv1.UserGroup{Name: UsrName}
+				for key, val := range lbl {
+					UserGrp.Labels = append(UserGrp.Labels, syncv1.Label{Name: key, Value: val})
+				}
+				UserGrps.UserGroups = append(UserGrps.UserGroups, UserGrp)
+			}
+			strjson, err := json.Marshal(UserGrps)
+			r.configChannel <- values
+			if err != nil {
+				log.Fatalf("Failed to unmarshal json ", err)
+				http.Error(w, fmt.Sprintf("Failed to unmarshal json %v", err), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte(strjson))
+
+		}
+		return
 	})
 }
 
