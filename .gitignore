@@ -1,5 +1,10 @@
 ./prom-label-proxy
-./vendor
+vendor
 build/_output
 .idea
 .envrc
+
+coverage.xml
+go-coverage-output.out
+go-test-output.out
+report.xml

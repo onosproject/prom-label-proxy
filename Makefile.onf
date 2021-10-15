@@ -12,11 +12,11 @@ build:
 
 test: # @HELP run the unit tests and source code validation
 test: build deps linters
-	CGO_ENABLED=1 go test -race github.com/onosproject/prom-label-proxy/injectproxy/...
+	CGO_ENABLED=1 go test -race github.com/prometheus-community/prom-label-proxy/...
 
 jenkins-test:  # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
-jenkins-test: build-tools deps license_check linters # openapi-linters
-	CGO_ENABLED=1 TEST_PACKAGES=github.com/onosproject/prom-label-proxy/... ./../build-tools/build/jenkins/make-unit
+jenkins-test: build-tools deps linters # openapi-linters
+	CGO_ENABLED=1 TEST_PACKAGES=github.com/prometheus-community/prom-label-proxy/... ./../build-tools/build/jenkins/make-unit
 
 deps: # @HELP ensure that the required dependencies are in place
 	go build -v ./...
@@ -59,11 +59,11 @@ kind: images
 all: build images
 
 publish: # @HELP publish version on github and dockerhub
-	./../build-tools/publish-version ${VERSION} onosproject/prom-label-proxy
+	MAKEFILE=./Makefile.onf ./../build-tools/publish-version ${VERSION} onosproject/prom-label-proxy
 
 jenkins-publish: build-tools jenkins-tools # @HELP Jenkins calls this to publish artifacts
 	./build/bin/push-images
-	../build-tools/release-merge-commit
+	MAKEFILE=./Makefile.onf ../build-tools/release-merge-commit
 
 clean: # @HELP remove all the build artifacts
 	rm -rf ./build/_output ./vendor ./cmd/prom-label-proxy/prom-label-proxy
