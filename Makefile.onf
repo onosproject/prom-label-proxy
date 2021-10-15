@@ -12,6 +12,7 @@ build:
 
 test: # @HELP run the unit tests and source code validation
 test: build deps linters
+	@go mod vendor
 	CGO_ENABLED=1 go test -race github.com/prometheus-community/prom-label-proxy/...
 
 jenkins-test:  # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
@@ -24,6 +25,7 @@ deps: # @HELP ensure that the required dependencies are in place
 	bash -c "diff -u <(echo -n) <(git diff go.sum)"
 
 linters: golang-ci # @HELP examines Go source code and reports coding problems
+	@go mod vendor
 	golangci-lint run --timeout 5m
 
 build-tools: # @HELP install the ONOS build tools if needed
