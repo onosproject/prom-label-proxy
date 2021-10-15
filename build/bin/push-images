@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+make -f Makefile.onf images
+docker push onosproject/prom-label-proxy:latest
