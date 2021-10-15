@@ -1,4 +1,5 @@
-prom-label-proxy
-
+./prom-label-proxy
+./vendor
+build/_output
 .idea
 .envrc

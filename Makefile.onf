@@ -1,0 +1,78 @@
+export CGO_ENABLED=0
+export GO111MODULE=on
+
+.PHONY: build
+
+PROM_LABEL_PROXY_VERSION := latest
+ONOS_BUILD_VERSION := v1.0.0
+
+build: # @HELP build the Go binaries and run all validations (default)
+build:
+	CGO_ENABLED=1 go build -o build/_output/prom-label-proxy ./
+
+test: # @HELP run the unit tests and source code validation
+test: build deps linters
+	CGO_ENABLED=1 go test -race github.com/onosproject/prom-label-proxy/injectproxy/...
+
+jenkins-test:  # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
+jenkins-test: build-tools deps license_check linters # openapi-linters
+	CGO_ENABLED=1 TEST_PACKAGES=github.com/onosproject/prom-label-proxy/... ./../build-tools/build/jenkins/make-unit
+
+deps: # @HELP ensure that the required dependencies are in place
+	go build -v ./...
+	bash -c "diff -u <(echo -n) <(git diff go.mod)"
+	bash -c "diff -u <(echo -n) <(git diff go.sum)"
+
+linters: golang-ci # @HELP examines Go source code and reports coding problems
+	golangci-lint run --timeout 5m
+
+build-tools: # @HELP install the ONOS build tools if needed
+	@if [ ! -d "../build-tools" ]; then cd .. && git clone https://github.com/onosproject/build-tools.git; fi
+
+jenkins-tools: # @HELP installs tooling needed for Jenkins
+	cd .. && go get -u github.com/jstemmer/go-junit-report && go get github.com/t-yuki/gocover-cobertura
+
+golang-ci: # @HELP install golang-ci if not present
+	golangci-lint --version || curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b `go env GOPATH`/bin v1.42.0
+
+license_check: build-tools # @HELP examine and ensure license headers exist
+	./../build-tools/licensing/boilerplate.py -v --rootdir=${CURDIR} --boilerplate LicenseRef-ONF-Member-1.0
+
+gofmt: # @HELP run the Go format validation
+	bash -c "diff -u <(echo -n) <(gofmt -d pkg/ cmd/ tests/)"
+
+prom-label-proxy-docker: # @HELP build prom-label-proxy Docker image
+	@go mod vendor
+	docker build . -f build/prom-label-proxy/Dockerfile \
+		-t onosproject/prom-label-proxy:${PROM_LABEL_PROXY_VERSION}
+	@rm -rf vendor
+
+images: # @HELP build all Docker images
+images: build prom-label-proxy-docker
+
+kind: # @HELP build Docker images and add them to the currently configured kind cluster
+kind: images
+	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
+	kind load docker-image onosproject/prom-label-proxy:${PROM_LABEL_PROXY_VERSION}
+	kind load docker-image onosproject/aether-roc-websocket:${PROM_LABEL_PROXY_VERSION}
+
+all: build images
+
+publish: # @HELP publish version on github and dockerhub
+	./../build-tools/publish-version ${VERSION} onosproject/prom-label-proxy
+
+jenkins-publish: build-tools jenkins-tools # @HELP Jenkins calls this to publish artifacts
+	./build/bin/push-images
+	../build-tools/release-merge-commit
+
+clean: # @HELP remove all the build artifacts
+	rm -rf ./build/_output ./vendor ./cmd/prom-label-proxy/prom-label-proxy
+	go clean -testcache github.com/onosproject/prom-label-proxy/...
+
+help:
+	@grep -E '^.*: *# *@HELP' $(MAKEFILE_LIST) \
+    | sort \
+    | awk ' \
+        BEGIN {FS = ": *# *@HELP"}; \
+        {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}; \
+    '
