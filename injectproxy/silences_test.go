@@ -76,9 +76,11 @@ func TestListSilences(t *testing.T) {
 		},
 	} {
 		t.Run(strings.Join(tc.filters, "&"), func(t *testing.T) {
+                        var config_ch = make(chan map[string]map[string]string,1)
+			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(checkQueryHandler("", "filter", tc.expFilters...))
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -303,9 +305,11 @@ func TestDeleteSilence(t *testing.T) {
 		},
 	} {
 		t.Run("", func(t *testing.T) {
+			var config_ch = make(chan map[string]map[string]string,1)
+			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -498,9 +502,11 @@ func TestUpdateSilence(t *testing.T) {
 		},
 	} {
 		t.Run("", func(t *testing.T) {
+			var config_ch = make(chan map[string]map[string]string,1)
+			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

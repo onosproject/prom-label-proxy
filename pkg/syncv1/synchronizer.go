@@ -31,7 +31,7 @@ func (s *Synchronizer) SynchronizeAndRetry(update *SynchronizerUpdate) {
 			log.Printf("Current synchronizer update has been obsoleted")
 			return
 		}
-		log.Printf("Updates : ", update)
+		log.Print("Updates : ", update)
 		err := s.synchronizeDeviceFunc(update.config)
 		if err == nil {
 			// Success!
@@ -98,7 +98,7 @@ func (s *Synchronizer) SetPusher(pusher synchronizer.PusherInterface) {
 
 // Start the synchronizer by launching the synchronizer loop inside a thread.
 func (s *Synchronizer) Start() {
-	log.Printf("Synchronizer starting (outputFileName=%s, postEnable=%s, postTimeout=%d)",
+	log.Printf("Synchronizer starting (outputFileName=%s, postEnable=%t, postTimeout=%d)",
 		s.outputFileName,
 		s.postEnable,
 		s.postTimeout)

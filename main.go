@@ -72,7 +72,7 @@ func main() {
 	}
 
 	if upstreamURL.Scheme != "http" && upstreamURL.Scheme != "https" {
-		log.Fatalf("Invalid scheme for upstream URL %q, only 'http' and 'https' are supported", upstream)
+		log.Fatalf("Invalid scheme for upstream URL %s, only 'http' and 'https' are supported", *upstream)
 	}
 
 	var opts []injectproxy.Option

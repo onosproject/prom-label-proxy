@@ -68,7 +68,7 @@ func TestSynchronizeDevice(t *testing.T) {
 	err = s.SynchronizeDevice(device)
 	assert.Nil(t, err)
 
-	json, okay := m.Pushes["http://prom-label-proxy-v1-http:8080/api/v1/config/"]
+	json, okay := m.Pushes["http://prom-label-proxy-v1:8080/api/v1/config/"]
 	assert.True(t, okay)
 	if okay {
 		expectedResult := `{"user-groups":[{"name":"starbucks","labels":[{"name":"ent","value":"starbucks"}]}]}`

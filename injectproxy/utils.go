@@ -37,7 +37,7 @@ func (r *routes) GetLabelsConfig(groups []string) (string,string,error) {
 		}
 	}
 	values := <- r.configChannel
-	log.Printf(" print config ",values)
+	log.Print(" print config ",values)
         lblconfig := values[grpName]
 	if lblconfig != nil {
 		for key ,val := range  lblconfig {

@@ -30,6 +30,8 @@ import (
 	"testing"
 )
 
+
+
 type gzipResponseWriter struct {
 	io.Writer
 	http.ResponseWriter
@@ -661,9 +663,11 @@ func TestRules(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s=%s", proxyLabel, tc.labelv), func(t *testing.T) {
+			var config_ch = make(chan map[string]map[string]string,1)
+			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -840,9 +844,11 @@ func TestAlerts(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s=%s", proxyLabel, tc.labelv), func(t *testing.T) {
+			var config_ch = make(chan map[string]map[string]string,1)
+			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}

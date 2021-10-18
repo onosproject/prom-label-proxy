@@ -25,10 +25,10 @@ func (s *Synchronizer) SynchronizeDevice(config ygot.ValidatedGoStruct) error {
 
 	var UserGrps UserGroups
 	for usrGrpName, usrGrp := range device.UserGroups.UserGroup {
-		log.Printf("User grp ", usrGrpName)
+		log.Print("User grp ", usrGrpName)
 		UserGrp := UserGroup{Name: usrGrpName}
 		for lblName, lbl := range usrGrp.Label {
-			log.Printf("User grp labels name,value = ", lblName, *lbl.Value)
+			log.Print("User grp labels name,value = ", lblName, *lbl.Value)
 			UserGrp.Labels = append(UserGrp.Labels, Label{Name: lblName, Value: *lbl.Value})
 		}
 		UserGrps.UserGroups = append(UserGrps.UserGroups, UserGrp)

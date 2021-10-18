@@ -227,15 +227,24 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			lblname, lblvalue, err := r.GetLabelsConfig(groups)
 
 			if err == nil {
-				log.Printf("lable config : ", lblname, lblvalue)
+				log.Print("lable config : ", lblname, lblvalue)
 				r.label = lblname
 				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
 			} else {
-				log.Printf("error getting lable config  ", err)
+				log.Print("error getting lable config  ", err)
 				http.Error(w, fmt.Sprintf("Error while getting label config : %v", err), http.StatusInternalServerError)
 				return
 
 			}
+		}else{
+
+			lvalue := req.FormValue(r.label)
+			if lvalue == "" {
+				http.Error(w, fmt.Sprintf("Bad request. The %q query parameter must be provided.", r.label), http.StatusBadRequest)
+				return
+			}
+			req = req.WithContext(withLabelValue(req.Context(), lvalue))
+
 		}
 
 		// Remove the proxy label from the query parameters.
@@ -310,7 +319,7 @@ func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 			strjson, err := json.Marshal(UserGrps)
 			r.configChannel <- values
 			if err != nil {
-				log.Fatalf("Failed to unmarshal json ", err)
+				log.Fatal("Failed to unmarshal json ", err)
 				http.Error(w, fmt.Sprintf("Failed to unmarshal json %v", err), http.StatusInternalServerError)
 				return
 			}
