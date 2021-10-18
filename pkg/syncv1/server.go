@@ -28,14 +28,11 @@ var (
 	postDisable         = flag.Bool("post_disable", false, "Disable posting to connectivity service endpoints")
 	postTimeout         = flag.Duration("post_timeout", time.Second*10, "Timeout duration when making post requests")
 	plproxyConfigAddr   = flag.String("onos_config_url", "", "If specified, pull initial state from onos-config at this address")
-	plproxyConfigTarget = flag.String("plproxy_config_target", "plproxy-service-v1", "Target to use when pulling from onos-config")
 )
 
 func StartGNMIServer(config_ch chan map[string]map[string]string) {
 
-	var sync synchronizer.SynchronizerInterface
-
-	sync = NewSynchronizer(*outputFileName, !*postDisable, *postTimeout, config_ch)
+	sync := NewSynchronizer(*outputFileName, !*postDisable, *postTimeout, config_ch)
 
 	// The synchronizer will convey its list of models.
 	model := sync.GetModels()

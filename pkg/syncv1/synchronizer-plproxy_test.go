@@ -63,7 +63,7 @@ func TestSynchronizeDevice(t *testing.T) {
 	s.SetPusher(m)
 	device := BuildDeviceConfig("", "starbucks", "ent", "starbucks")
 	e, err := json.Marshal(device)
-	//assert.NoError(t, err)
+	assert.NoError(t, err)
 	t.Log(string(e))
 	err = s.SynchronizeDevice(device)
 	assert.Nil(t, err)

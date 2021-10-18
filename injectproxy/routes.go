@@ -323,10 +323,14 @@ func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 				http.Error(w, fmt.Sprintf("Failed to unmarshal json %v", err), http.StatusInternalServerError)
 				return
 			}
-			w.Write([]byte(strjson))
+			_,err = w.Write([]byte(strjson))
+			if err != nil {
+				log.Fatal("Failed to write to stream ", err)
+				http.Error(w, fmt.Sprintf("Failed to write to stream %v", err), http.StatusInternalServerError)
+				return
+			}
 
 		}
-		return
 	})
 }
 
