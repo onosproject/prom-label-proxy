@@ -7,6 +7,7 @@ COPY Makefile.onf go.mod go.sum /go/src/github.com/onosproject/prom-label-proxy/
 COPY main.go /go/src/github.com/onosproject/prom-label-proxy/
 COPY injectproxy/ /go/src/github.com/onosproject/prom-label-proxy/injectproxy/
 COPY vendor/ /go/src/github.com/onosproject/prom-label-proxy/vendor/
+COPY pkg/ /go/src/github.com/onosproject/prom-label-proxy/pkg/
 
 RUN cd /go/src/github.com/onosproject/prom-label-proxy && GOFLAGS=-mod=vendor make -f Makefile.onf ${ONOS_MAKE_TARGET}
 
