@@ -15,6 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/alertmanager v0.23.0
 	github.com/prometheus/prometheus v1.8.2-0.20210811141203-dcb07e8eac34
+	github.com/stretchr/testify v1.7.0
 	google.golang.org/grpc v1.39.0
 	gotest.tools v2.2.0+incompatible
 )

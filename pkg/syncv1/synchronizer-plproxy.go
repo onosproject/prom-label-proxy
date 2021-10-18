@@ -13,7 +13,7 @@ import (
 )
 
 //TODO replace it will proper way to get the endpoint url
-var endpoint_url = "http://prom-label-proxy-v1-http:8080/api/v1/config/"
+var endpoint_url = "http://prom-label-proxy-v1:8080/api/v1/config/"
 
 // Synchronize synchronizes the state to the underlying service.
 func (s *Synchronizer) SynchronizeDevice(config ygot.ValidatedGoStruct) error {
