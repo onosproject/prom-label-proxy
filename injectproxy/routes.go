@@ -216,7 +216,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			groups := enforceAuth(w, req)
 
 			if len(groups) == 0 {
-				log.Fatal("No user group exit ")
+				log.Print("No user group exist for the user ")
 				return
 			}
 
