@@ -5,10 +5,10 @@
 
 package injectproxy
 
-import(
-   "strings"
-   "log"
-   "errors"
+import (
+	"errors"
+	"log"
+	"strings"
 )
 
 //Check if Admin User
@@ -27,7 +27,7 @@ func (r *routes) isAdminUser(groups []string) bool {
 }
 
 // Get label config for the user group
-func (r *routes) GetLabelsConfig(groups []string) (string,string,error) {
+func (r *routes) GetLabelsConfig(groups []string) (string, string, error) {
 	//default return last usergrp name
 	grpName := groups[len(groups)-1]
 	//check for the groupname in all lowercase
@@ -36,13 +36,12 @@ func (r *routes) GetLabelsConfig(groups []string) (string,string,error) {
 			grpName = group
 		}
 	}
-	values := <- r.configChannel
-	log.Print(" print config ",values)
-        lblconfig := values[grpName]
-	for key ,val := range  lblconfig {
-		return key, val , nil
+	values := <-r.configChannel
+	log.Print(" print config ", values)
+	lblconfig := values[grpName]
+	for key, val := range lblconfig {
+		return key, val, nil
 	}
-        log.Fatalf("Config labels not found for user group: %s",grpName )
-	return "", "", errors.New("Failed to find label for user group"+grpName)
+	log.Printf("Config labels not found for user group: %s", grpName)
+	return "", "", errors.New("Failed to find label for user group" + grpName)
 }
-

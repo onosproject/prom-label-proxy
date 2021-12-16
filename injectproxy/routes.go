@@ -236,7 +236,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				return
 
 			}
-		}else{
+		} else {
 
 			lvalue := req.FormValue(r.label)
 			if lvalue == "" {
@@ -282,7 +282,7 @@ func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 			defer req.Body.Close()
 			b, err := io.ReadAll(req.Body)
 			if err != nil {
-				log.Fatalln(err)
+				log.Print(err)
 				http.Error(w, fmt.Sprintf("Failed to read the data: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -290,7 +290,7 @@ func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 			err = json.Unmarshal([]byte(string(b)), &config)
 
 			if err != nil {
-				log.Fatalln(err)
+				log.Print(err)
 				http.Error(w, fmt.Sprintf("Failed to parse the data: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -323,7 +323,7 @@ func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 				http.Error(w, fmt.Sprintf("Failed to unmarshal json %v", err), http.StatusInternalServerError)
 				return
 			}
-			_,err = w.Write([]byte(strjson))
+			_, err = w.Write([]byte(strjson))
 			if err != nil {
 				log.Fatal("Failed to write to stream ", err)
 				http.Error(w, fmt.Sprintf("Failed to write to stream %v", err), http.StatusInternalServerError)
