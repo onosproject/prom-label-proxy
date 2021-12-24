@@ -31,7 +31,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-
+        "bytes"
 	"github.com/efficientgo/tools/core/pkg/merrors"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -49,6 +49,7 @@ type routes struct {
 	handler       http.Handler
 	label         string
 	adminGroup    string
+	defaultGroup  string
 	configChannel chan map[string]map[string]string
 
 	mux            *http.ServeMux
@@ -139,7 +140,7 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, adminGroup string, configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup string,configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
@@ -147,7 +148,7 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, configChannel
 
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 
-	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, errorOnReplace: opt.errorOnReplace}
+	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, defaultGroup: defaultGroup, errorOnReplace: opt.errorOnReplace}
 	mux := newStrictMux()
 
 	errs := merrors.New(
@@ -232,9 +233,21 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
 			} else {
 				log.Print("error getting lable config  ", err)
-				http.Error(w, fmt.Sprintf("Error while getting label config : %v", err), http.StatusInternalServerError)
-				return
-
+                                var values bytes.Buffer
+				result := r.defaultGroup  //setting default group
+				var foundGroups = false
+				for index, element := range groups {
+					log.Print("index, element   ", index, element)
+					values.WriteString(element+"|")
+					foundGroups = true
+				}
+				if foundGroups {
+                                      result = values.String()
+				      result = result[0:len(result)-1]
+				}
+				
+				log.Printf("setting default lable config %s = %s ", r.label,result)
+				req = req.WithContext(withLabelValue(req.Context(), result))
 			}
 		} else {
 

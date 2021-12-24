@@ -40,6 +40,7 @@ var (
 	upstream         = flag.String("upstream", "", "The upstream URL to proxy to.")
 	label     = 		flag.String("label", "", "The label to enforce in all proxied PromQL queries.")
 	adminGroup     = 		flag.String("admingroup", "AetherROCAdmin", "admin group name")
+	defaultGroup     = 		flag.String("defaultgroup", "ather-roc", "default group name")
 	enableLabelAPIs        = flag.Bool("enable-label-apis", false, "When specified proxy allows to inject label to label APIs" +
 		" like /api/v1/labels and /api/v1/label/<name>/values.\\n\t\t\"NOTE: Enable with care. Selection of matcher is still in development," +
 		" see https://github.com/thanos-io/thanos/issues/3351 and https://github.com/prometheus/prometheus/issues/6178. If enabled and\"" +
@@ -89,7 +90,7 @@ func main() {
 	config_ch <- make(map[string]map[string]string)
 
 
-	routes, err := injectproxy.NewRoutes(upstreamURL, *label, *adminGroup,config_ch ,opts...)
+	routes, err := injectproxy.NewRoutes(upstreamURL, *label, *adminGroup, *defaultGroup,config_ch ,opts...)
 	if err != nil {
 		log.Fatalf("Failed to create injectproxy Routes: %v", err)
 	}
