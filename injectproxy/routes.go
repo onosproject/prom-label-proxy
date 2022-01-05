@@ -31,12 +31,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
-        "bytes"
 	"github.com/efficientgo/tools/core/pkg/merrors"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 	"log"
+	"unicode"
 )
 
 const (
@@ -228,25 +228,26 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			lblname, lblvalue, err := r.GetLabelsConfig(groups)
 
 			if err == nil {
-				log.Print("lable config : ", lblname, lblvalue)
+				log.Print("label config : ", lblname, lblvalue)
 				r.label = lblname
 				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
 			} else {
-				log.Print("error getting lable config  ", err)
-                                var values bytes.Buffer
+				log.Print("error getting label config  ", err)
 				result := r.defaultGroup  //setting default group
-				var foundGroups = false
-				for index, element := range groups {
-					log.Print("index, element   ", index, element)
-					values.WriteString(element+"|")
-					foundGroups = true
-				}
-				if foundGroups {
-                                      result = values.String()
-				      result = result[0:len(result)-1]
-				}
-				
-				log.Printf("setting default lable config %s = %s ", r.label,result)
+				if len(groups) > 1 {
+			                grps := []string { }
+				        for i := 0 ; i  < len(groups) ; i++ {
+					     log.Printf(" groups  %s ", groups[i])
+					    // check if it starts with lower case char skip others
+					     if unicode.IsLower([]rune(groups[i])[0]) { 
+					         grps = append(grps,groups[i])
+					     }
+				        }
+					if len(grps) > 0 {
+			                     result = strings.Join(grps, "|")
+				        }
+                                }
+				log.Printf("setting label config %s = %s ", r.label,result)
 				req = req.WithContext(withLabelValue(req.Context(), result))
 			}
 		} else {
@@ -286,7 +287,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 	})
 }
 
-// API for GET/UPDATE lable config for the user groups
+// API for GET/UPDATE label config for the user groups
 func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
