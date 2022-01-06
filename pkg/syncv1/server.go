@@ -58,7 +58,7 @@ func StartGNMIServer(config_ch chan map[string]map[string]string) {
 		var err error
 		configData, err = ioutil.ReadFile(*configFile)
 		if err != nil {
-			log.Fatalf("error in reading config file: %v", err)
+			log.Printf("error in reading config file: %v", err)
 		}
 	}
 
@@ -67,7 +67,7 @@ func StartGNMIServer(config_ch chan map[string]map[string]string) {
 
 	s, err := target.NewTarget(model, configData, synchronizerWrapper(sync))
 	if err != nil {
-		log.Fatalf("error in creating gnmi target: %v", err)
+		log.Printf("error in creating gnmi target: %v", err)
 	}
 	go func() {
 		for {

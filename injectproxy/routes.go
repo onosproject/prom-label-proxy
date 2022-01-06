@@ -31,12 +31,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
-
 	"github.com/efficientgo/tools/core/pkg/merrors"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 	"log"
+	"unicode"
 )
 
 const (
@@ -49,6 +49,7 @@ type routes struct {
 	handler       http.Handler
 	label         string
 	adminGroup    string
+	defaultGroup  string
 	configChannel chan map[string]map[string]string
 
 	mux            *http.ServeMux
@@ -139,7 +140,7 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, adminGroup string, configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup string,configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
@@ -147,7 +148,7 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, configChannel
 
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 
-	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, errorOnReplace: opt.errorOnReplace}
+	r := &routes{upstream: upstream, handler: proxy, label: label, adminGroup: adminGroup, defaultGroup: defaultGroup, errorOnReplace: opt.errorOnReplace}
 	mux := newStrictMux()
 
 	errs := merrors.New(
@@ -227,14 +228,27 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			lblname, lblvalue, err := r.GetLabelsConfig(groups)
 
 			if err == nil {
-				log.Print("lable config : ", lblname, lblvalue)
+				log.Print("label config : ", lblname, lblvalue)
 				r.label = lblname
 				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
 			} else {
-				log.Print("error getting lable config  ", err)
-				http.Error(w, fmt.Sprintf("Error while getting label config : %v", err), http.StatusInternalServerError)
-				return
-
+				log.Print("error getting label config  ", err)
+				result := r.defaultGroup  //setting default group
+				if len(groups) > 1 {
+			                grps := []string { }
+				        for i := 0 ; i  < len(groups) ; i++ {
+					     log.Printf(" groups  %s ", groups[i])
+					    // check if it starts with lower case char skip others
+					     if unicode.IsLower([]rune(groups[i])[0]) { 
+					         grps = append(grps,groups[i])
+					     }
+				        }
+					if len(grps) > 0 {
+			                     result = strings.Join(grps, "|")
+				        }
+                                }
+				log.Printf("setting label config %s = %s ", r.label,result)
+				req = req.WithContext(withLabelValue(req.Context(), result))
 			}
 		} else {
 
@@ -273,7 +287,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 	})
 }
 
-// API for GET/UPDATE lable config for the user groups
+// API for GET/UPDATE label config for the user groups
 func (r *routes) updateLabelConfig(h http.HandlerFunc) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

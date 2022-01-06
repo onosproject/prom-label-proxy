@@ -667,7 +667,7 @@ func TestRules(t *testing.T) {
 			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,defaultGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -848,7 +848,7 @@ func TestAlerts(t *testing.T) {
 			var adminGroup = "AetherROCAdmin"
 			m := newMockUpstream(tc.upstream)
 			defer m.Close()
-			r, err := NewRoutes(m.url, proxyLabel,adminGroup,config_ch)
+			r, err := NewRoutes(m.url, proxyLabel,adminGroup,defaultGroup,config_ch)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
