@@ -158,7 +158,7 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup 
 		mux.Handle("/api/v1/query_range", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 		mux.Handle("/api/v1/alerts", r.enforceLabel(enforceMethods(r.passthrough, "GET"))),
 		mux.Handle("/api/v1/rules", r.enforceLabel(enforceMethods(r.passthrough, "GET"))),
-		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET"))),
+		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET" , "POST"))),
 		mux.Handle("/api/v1/query_exemplars", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 	)
 	if opt.enableLabelAPIs {
@@ -225,31 +225,25 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				r.handler.ServeHTTP(w, req)
 				return
 			}
-			lblname, lblvalue, err := r.GetLabelsConfig(groups)
-
-			if err == nil {
-				log.Print("label config : ", lblname, lblvalue)
-				r.label = lblname
-				req = req.WithContext(withLabelValue(req.Context(), lblvalue))
-			} else {
-				log.Print("error getting label config  ", err)
-				result := r.defaultGroup  //setting default group
-				if len(groups) > 1 {
-			                grps := []string { }
-				        for i := 0 ; i  < len(groups) ; i++ {
-					     log.Printf(" groups  %s ", groups[i])
-					    // check if it starts with lower case char skip others
-					     if unicode.IsLower([]rune(groups[i])[0]) { 
-					         grps = append(grps,groups[i])
-					     }
-				        }
-					if len(grps) > 0 {
-			                     result = strings.Join(grps, "|")
-				        }
-                                }
-				log.Printf("setting label config %s = %s ", r.label,result)
-				req = req.WithContext(withLabelValue(req.Context(), result))
-			}
+			//TODO later reintroduce call to get the label config 
+			// for now it's not required
+			log.Print("Not an admin getting label for the user group")
+			result := r.defaultGroup  //setting default group
+			if len(groups) > 1 {
+		                grps := []string { }
+			        for i := 0 ; i  < len(groups) ; i++ {
+				     log.Printf(" groups  %s ", groups[i])
+				    // check if it starts with lower case char skip others
+				     if unicode.IsLower([]rune(groups[i])[0]) { 
+				         grps = append(grps,groups[i])
+				     }
+			        }
+				if len(grps) > 0 {
+		                     result = strings.Join(grps, "|")
+			        }
+                       }
+			log.Printf("setting label config %s = %s ", r.label,result)
+			req = req.WithContext(withLabelValue(req.Context(), result))
 		} else {
 
 			lvalue := req.FormValue(r.label)
@@ -267,6 +261,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			q.Del(r.label)
 		}
 		req.URL.RawQuery = q.Encode()
+                log.Printf("Debug request before %v ",req)
 		// Remove the proxy label from the PostForm.
 		if req.Method == http.MethodPost {
 			if err := req.ParseForm(); err != nil {
@@ -282,8 +277,9 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				req.ContentLength = int64(len(newBody))
 			}
 		}
-
-		h.ServeHTTP(w, req)
+                log.Printf("Debug request after %v ",req)
+         	h.ServeHTTP(w, req)
+		//r.handler.ServeHTTP(w, req)
 	})
 }
 
@@ -469,6 +465,7 @@ func enforceQueryValues(e *Enforcer, v url.Values) (values string, noQuery bool,
 // This works for non-query Prometheus APIs like: /api/v1/series, /api/v1/label/<name>/values, /api/v1/labels and /federate support multiple matchers.
 // See e.g https://prometheus.io/docs/prometheus/latest/querying/api/#querying-metadata
 func (r *routes) matcher(w http.ResponseWriter, req *http.Request) {
+	log.Printf("matcher++")
 	matcher := &labels.Matcher{
 		Name:  r.label,
 		Type:  labels.MatchEqual,
@@ -497,6 +494,7 @@ func (r *routes) matcher(w http.ResponseWriter, req *http.Request) {
 }
 
 func injectMatcher(q url.Values, matcher *labels.Matcher) error {
+	log.Printf("injectMatcher++")
 	matchers := q[matchersParam]
 	if len(matchers) == 0 {
 		q.Set(matchersParam, matchersToString(matcher))
