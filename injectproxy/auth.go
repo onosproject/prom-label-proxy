@@ -18,18 +18,18 @@ func enforceAuth(w http.ResponseWriter, req *http.Request) []string {
 	jwtAuth := new(auth.JwtAuthenticator)
 	authHeader := req.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		log.Print("Bad request. No auth header.")
-		http.Error(w, "Bad request. No auth header.", http.StatusProxyAuthRequired)
+		log.Printf("Bad request. No auth header. URL %s", req.URL)
+		http.Error(w, fmt.Sprintf("Bad request. No auth header. URL %s", req.URL), http.StatusProxyAuthRequired)
 		return nil
 	}
 	authClaims, err := jwtAuth.ParseAndValidate(authHeader[7:])
 	if err != nil {
-		log.Print("Bad request error validating jwt token : ",err)
+		log.Print("Bad request error validating jwt token : ", err)
 		http.Error(w, fmt.Sprintf("Bad request. Auth header. %s", err.Error()), http.StatusBadRequest)
 		return nil
 	}
 	if err = authClaims.Valid(); err != nil {
-		log.Print("Bad request Auth header not valid : ",err)
+		log.Print("Bad request Auth header not valid : ", err)
 		http.Error(w, fmt.Sprintf("Bad request. Auth header not valid. %s", err.Error()), http.StatusUnauthorized)
 		return nil
 	}

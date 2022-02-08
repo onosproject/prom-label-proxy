@@ -22,20 +22,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/efficientgo/tools/core/pkg/merrors"
 	"github.com/onosproject/onos-lib-go/pkg/auth"
+	"github.com/pkg/errors"
 	"github.com/prometheus-community/prom-label-proxy/pkg/syncv1"
+	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/promql/parser"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
-	"github.com/efficientgo/tools/core/pkg/merrors"
-	"github.com/pkg/errors"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql/parser"
-	"log"
 	"unicode"
 )
 
@@ -140,7 +140,7 @@ func (s *strictMux) Handle(pattern string, handler http.Handler) error {
 	return nil
 }
 
-func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup string,configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
+func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup string, configChannel chan map[string]map[string]string, opts ...Option) (*routes, error) {
 	opt := options{}
 	for _, o := range opts {
 		o.apply(&opt)
@@ -158,7 +158,7 @@ func NewRoutes(upstream *url.URL, label string, adminGroup string, defaultGroup 
 		mux.Handle("/api/v1/query_range", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 		mux.Handle("/api/v1/alerts", r.enforceLabel(enforceMethods(r.passthrough, "GET"))),
 		mux.Handle("/api/v1/rules", r.enforceLabel(enforceMethods(r.passthrough, "GET"))),
-		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET" , "POST"))),
+		mux.Handle("/api/v1/series", r.enforceLabel(enforceMethods(r.matcher, "GET", "POST"))),
 		mux.Handle("/api/v1/query_exemplars", r.enforceLabel(enforceMethods(r.query, "GET", "POST"))),
 	)
 	if opt.enableLabelAPIs {
@@ -217,7 +217,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 			groups := enforceAuth(w, req)
 
 			if len(groups) == 0 {
-				log.Print("No user group exist for the user ")
+				log.Printf("No user group exist for the user. %v", req.URL)
 				return
 			}
 
@@ -225,22 +225,22 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				r.handler.ServeHTTP(w, req)
 				return
 			}
-			//TODO later reintroduce call to get the label config 
+			//TODO later reintroduce call to get the label config
 			// for now it's not required
 			log.Print("Not an admin getting label for the user group")
-			result := r.defaultGroup  //setting default group
-		        grps := []string { }
-			for i := 0 ; i  < len(groups) ; i++ {
-			     log.Printf(" groups  %s ", groups[i])
-			    // check if it starts with lower case char skip others
-			     if unicode.IsLower([]rune(groups[i])[0]) { 
-			         grps = append(grps,groups[i])
-			     }
+			result := r.defaultGroup //setting default group
+			grps := []string{}
+			for i := 0; i < len(groups); i++ {
+				log.Printf(" groups  %s ", groups[i])
+				// check if it starts with lower case char skip others
+				if unicode.IsLower([]rune(groups[i])[0]) {
+					grps = append(grps, groups[i])
+				}
 			}
-		        if len(grps) > 0 {
-		           result = strings.Join(grps, "|")
-                        }
-			log.Printf("setting label config %s = %s ", r.label,result)
+			if len(grps) > 0 {
+				result = strings.Join(grps, "|")
+			}
+			log.Printf("setting label config %s = %s ", r.label, result)
 			req = req.WithContext(withLabelValue(req.Context(), result))
 		} else {
 
@@ -274,7 +274,7 @@ func (r *routes) enforceLabel(h http.HandlerFunc) http.Handler {
 				req.ContentLength = int64(len(newBody))
 			}
 		}
-         	h.ServeHTTP(w, req)
+		h.ServeHTTP(w, req)
 	})
 }
 
