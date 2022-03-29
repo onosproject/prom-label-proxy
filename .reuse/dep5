@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
-Files: VERSION .gitreview go.mod go.sum Makefile examples/* .circleci/* OWNERS LICENSE README.md .dockerignore .github/* .gitignore .golangci.yml .promu.yml CHANGELOG.md CODE_OF_CONDUCT.md Dockerfile SECURITY.md
+Files: VERSION .gitreview go.mod go.sum  Makefile Makefile.common examples/* .circleci/* OWNERS LICENSE README.md .dockerignore .github/* .golangci.yml .promu.yml CHANGELOG.md Dockerfile SECURITY.md
 Copyright: 2021 Open Networking Foundation
 License: Apache-2.0
